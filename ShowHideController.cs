@@ -16,16 +16,23 @@ public class ShowHideController : MonoBehaviour
     private TextsController textsController;
     private ScrollbarsController scrollbarsController;
 
+    public GameObject itemKeyScrollView;
+    public GameObject itemValueScrollView;
+    public GameObject editKeyScrollView;
+    public GameObject editValueScrollView;
+    public GameObject editHyperlinkScrollView;
+    public GameObject addKeyScrollView;
+    public GameObject addValueScrollView;
+    public GameObject addHyperlinkScrollView;
+
     public void show(string menuName)
     {
         globalVariables.getCurrentMenu().SetActive(false);
         Debug.Log(globalVariables.getCurrentMenuName() + " switched to " + menuName);
         globalVariables.setCurrentMenu(menuName);
 
-        switch (menuName)
-        {
+        switch (menuName){
             case "Main Menu":
-                flexDictionary.sortDictionary(globalVariables.getSorting());
                 dictionaryListController.refreshList();
                 globalVariables.getMainMenu().SetActive(true);
                 //inputFieldsController.getSearchInputField().gameObject.SetActive(false);
@@ -41,12 +48,14 @@ public class ShowHideController : MonoBehaviour
                 inputFieldsController.getAddHyperlinkInputField().text = "";
                 globalVariables.setFavoriteButtonState(false);
                 buttonsController.refreshAddFavoriteButton();
+                //addValueScrollView.GetComponent<RectTransform>().sizeDelta = new Vector2(addValueScrollView.GetComponent<RectTransform>().sizeDelta.x, 500);
                 globalVariables.getAddItemMenu().SetActive(true);
                 break;
             case "Edit Item Menu": 
                 globalVariables.setFavoriteButtonState(globalVariables.isFavorite());
                 buttonsController.refreshEditFavoriteButton();
                 textsController.updateEditItemMenuTexts();
+                //editValueScrollView.GetComponent<RectTransform>().sizeDelta = new Vector2(editValueScrollView.GetComponent<RectTransform>().sizeDelta.x, 500);
                 globalVariables.getEditItemMenu().SetActive(true);
                 break;
             case "Edit Choice Menu": 
@@ -59,11 +68,13 @@ public class ShowHideController : MonoBehaviour
                 globalVariables.getDeleteChoiceMenu().SetActive(true);
                 break;
             case "Item Menu":
-                textsController.getItemKeyText().text = globalVariables.getKeyPicked();
+                textsController.getItemKeyText().text = globalVariables.getPickedItem().getKey();
                 textsController.getItemKeyText().fontSize = globalVariables.keyFontSize;
-                textsController.getItemValueText().text = flexDictionary.getValue(globalVariables.getKeyPicked()).getValue();
+                textsController.getItemValueText().text = globalVariables.getPickedItem().getValue();
                 textsController.getItemValueText().fontSize = globalVariables.valueFontSize;
                 textsController.updateItemMenuTexts();
+                //itemValueScrollView.GetComponent<RectTransform>().sizeDelta = new Vector2(itemValueScrollView.GetComponent<RectTransform>().sizeDelta.x, 500);
+                //itemValueScrollView.GetComponent<RectTransform>().anchoredPosition = new Vector3(0, 100, 0);
                 globalVariables.getItemMenu().SetActive(true);
                 globalVariables.setFavoriteButtonState(globalVariables.isFavorite());
                 buttonsController.refreshItemFavoriteButton();
@@ -89,8 +100,6 @@ public class ShowHideController : MonoBehaviour
         hideAllMenus();
         if (globalVariables.isTesting()){
             globalVariables.writeToDebugLog("ShowHideController started");
-        } else{
-            flexDictionary.deserializeDictionary();
         }
         //show("testMenu"); //DEBUG
         if (globalVariables.isTesting()){

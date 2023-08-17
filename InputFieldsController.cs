@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using TMPro;
+using System.IO;
 
 public sealed class InputFieldsController : MonoBehaviour
 {
@@ -11,12 +12,14 @@ public sealed class InputFieldsController : MonoBehaviour
     public TMP_InputField addKeyInputField;
     public TMP_InputField addValueInputField;
     public TMP_InputField addHyperlinkInputField;
+    public TMP_InputField dictionaryNameInputField;
     public TMP_InputField searchInputField;
 
     private GlobalVariables globalVariables;
     private FlexDictionary flexDictionary;
     private ShowHideController showHideController;
     private DictionaryListController dictionaryListController;
+    private DropdownsController dropdownsController;
     
     private static InputFieldsController instance = null;
     private InputFieldsController(){}
@@ -50,6 +53,7 @@ public sealed class InputFieldsController : MonoBehaviour
             flexDictionary = globalVariables.getFlexDictionary();
             showHideController = globalVariables.getShowHideController();
             dictionaryListController = globalVariables.getDictionaryListController();
+            dropdownsController = globalVariables.getDropdownsController();
         }
     }
 
@@ -82,8 +86,24 @@ public sealed class InputFieldsController : MonoBehaviour
     }
 
     public void onSearchInputFieldChange(){
-        flexDictionary.getSearchResult(searchInputField.text);
+        flexDictionary.setSearchText(searchInputField.text);
         dictionaryListController.refreshList();
+    }
+
+    public void onDictionaryNameInputFieldEndEdit(){
+        File.Move(Path.Combine(globalVariables.getSaveDirectoryPath(), globalVariables.getLastSelectedDictionary() + ".vf"), 
+                  Path.Combine(globalVariables.getSaveDirectoryPath(), dictionaryNameInputField.text + ".vf"));
+        globalVariables.setLastSelectedDictionary(dictionaryNameInputField.text);
+        dropdownsController.setNewFileName(dictionaryNameInputField.text);
+        globalVariables.serializeSettings();
+    }
+
+    public void setDictionaryNameInputFieldText(string text){
+        dictionaryNameInputField.text = text;
+    }
+
+    public string getDictionaryNameInputField(){
+        return dictionaryNameInputField.text;
     }
 
 }

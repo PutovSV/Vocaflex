@@ -139,7 +139,7 @@ public class ButtonsController : MonoBehaviour
         string itemKey;
         string itemValue;
         string itemHyperlink;
-        bool success;
+        Item newItem;
 
         switch (globalVariables.getCurrentMenuName()){
             case "Add Item Menu":
@@ -147,22 +147,17 @@ public class ButtonsController : MonoBehaviour
                 itemValue = inputFieldsController.getAddValueInputField().text.Trim();
                 itemHyperlink = inputFieldsController.getAddHyperlinkInputField().text.Trim();
                 if (itemKey.Length == 0){
-                    getRecursiveFindChild(inputFieldsController.getAddKeyInputField().gameObject, "Placeholder").GetComponent<TMP_Text>().text = "Вы забыли ввести имя термина!";
+                    GameObject.Find("AddKeyInputFieldPlaceholder").GetComponent<TMP_Text>().text = textsController.getKeyInputFieldPlaceholderWarning();
                 }
                 if (itemValue.Length == 0){
-                    getRecursiveFindChild(inputFieldsController.getAddValueInputField().gameObject, "Placeholder").GetComponent<TMP_Text>().text = "Вы забыли ввести описание термина!";
+                    GameObject.Find("AddValueInputFieldPlaceholder").GetComponent<TMP_Text>().text = textsController.getValueInputFieldPlaceholderWarning();
                 }
                 if ((itemKey.Length > 0) && (itemValue.Length > 0)){
-                    success = flexDictionary.addItem(itemKey, new Item(itemKey, itemValue, itemHyperlink, globalVariables.getFavoriteButtonState()));
-                    if (success){
-                        dictionaryListController.refreshList();
+                    if (flexDictionary.getItem(itemKey) == null){
+                        flexDictionary.addItem(new Item(itemKey, itemValue, itemHyperlink, globalVariables.getFavoriteButtonState()));
                         showHideController.show("Main Menu");
                     } else {
                         showHideController.show("Replace Choice Menu");
-                        Debug.Log("Ошибка! Термин '" + itemKey + 
-                                  "' не добавлен! Описание: '" + itemValue + 
-                                  "'. Гиперссылка: '" + itemHyperlink + 
-                                  "'. isFavotrite: " + globalVariables.getFavoriteButtonState());
                     }
                 }
                 break;
@@ -170,52 +165,58 @@ public class ButtonsController : MonoBehaviour
                 itemKey = inputFieldsController.getEditKeyInputField().text.Trim();
                 itemValue = inputFieldsController.getEditValueInputField().text.Trim();
                 itemHyperlink = inputFieldsController.getEditHyperlinkInputField().text.Trim();
-                if (itemKey.Length==0){
-                    getRecursiveFindChild(inputFieldsController.getEditKeyInputField().gameObject, "Placeholder").GetComponent<TMP_Text>().text = "Вы забыли ввести имя термина!";
+                if (itemKey.Length == 0){
+                    GameObject.Find("EditKeyInputFieldPlaceholder").GetComponent<TMP_Text>().text = textsController.getKeyInputFieldPlaceholderWarning();
                 }
-                if (itemValue.Length==0){
-                    getRecursiveFindChild(inputFieldsController.getEditValueInputField().gameObject, "Placeholder").GetComponent<TMP_Text>().text = "Вы забыли ввести описание термина!";
+                if (itemValue.Length == 0){
+                    GameObject.Find("EditValueInputFieldPlaceholder").GetComponent<TMP_Text>().text = textsController.getValueInputFieldPlaceholderWarning();
                 }
                 if ((itemKey.Length > 0) && (itemValue.Length > 0)){
-                    // добавить случай, когда имя термина уже есть в словаре
-                    success = flexDictionary.updatePickedItem(itemKey, itemValue, itemHyperlink, globalVariables.getFavoriteButtonState());
-                    if (success){
-                        globalVariables.setKeyPicked(itemKey);
+                    if (itemKey == globalVariables.getPickedItem().getKey()){
+                        flexDictionary.updateItem(newItem = new Item(itemKey, itemValue, itemHyperlink, globalVariables.getFavoriteButtonState()));
+                        globalVariables.setPickedItem(newItem);
+                        showHideController.show("Item Menu");
+                    } else
+                    if (flexDictionary.getItem(itemKey) == null){
+                        flexDictionary.removeItem(globalVariables.getPickedItem());
+                        flexDictionary.addItem(newItem = new Item(itemKey, itemValue, itemHyperlink, globalVariables.getFavoriteButtonState()));
+                        globalVariables.setPickedItem(newItem);
                         showHideController.show("Item Menu");
                     } else {
                         showHideController.show("Replace Choice Menu");
-                        Debug.Log("Ошибка! Термин '" + itemKey + 
-                                  "' не изменен! Описание: '" + itemValue + 
-                                  "'. Гиперссылка: '" + itemHyperlink + 
-                                  "'. isFavotrite: " + globalVariables.getFavoriteButtonState());
                     }
                 }
                 break;
+                /*
             case "Edit Choice Menu":
                 itemKey = inputFieldsController.getEditKeyInputField().text.Trim();
                 itemValue = inputFieldsController.getEditValueInputField().text.Trim();
                 itemHyperlink = inputFieldsController.getEditValueInputField().text.Trim();
-                success = flexDictionary.updatePickedItem(itemKey, itemValue, itemHyperlink, globalVariables.getFavoriteButtonState());
+                success = flexDictionary.updateItem(newItem = new Item(itemKey, itemValue, itemHyperlink, globalVariables.getFavoriteButtonState()));
                 if (success){
-                    globalVariables.setKeyPicked(itemKey);
+                    globalVariables.setPickedItem(newItem);
                 }
                 showHideController.show("Item Menu");
                 break;
+                */
             case "Replace Choice Menu":
                 switch (globalVariables.getPreviousMenu()){
                     case "Add Item Menu":
                         itemKey = inputFieldsController.getAddKeyInputField().text.Trim();
                         itemValue = inputFieldsController.getAddValueInputField().text.Trim();
                         itemHyperlink = inputFieldsController.getAddValueInputField().text.Trim();
-                        globalVariables.setKeyPicked(itemKey);
-                        flexDictionary.updatePickedItem(itemKey, itemValue, itemHyperlink, globalVariables.getFavoriteButtonState());
+                        flexDictionary.removeItem(itemKey);
+                        flexDictionary.addItem(newItem = new Item(itemKey, itemValue, itemHyperlink, globalVariables.getFavoriteButtonState()));
+                        globalVariables.setPickedItem(newItem);
                         break;
                     case "Edit Item Menu":
                         itemKey = inputFieldsController.getEditKeyInputField().text.Trim();
                         itemValue = inputFieldsController.getEditValueInputField().text.Trim();
                         itemHyperlink = inputFieldsController.getEditValueInputField().text.Trim();
-                        globalVariables.setKeyPicked(itemKey);
-                        flexDictionary.updatePickedItem(itemKey, itemValue, itemHyperlink, globalVariables.getFavoriteButtonState());
+                        flexDictionary.removeItem(globalVariables.getPickedItem());
+                        flexDictionary.removeItem(itemKey);
+                        flexDictionary.addItem(newItem = new Item(itemKey, itemValue, itemHyperlink, globalVariables.getFavoriteButtonState()));
+                        globalVariables.setPickedItem(newItem);
                         break;
                     default:
                         break;
@@ -223,9 +224,8 @@ public class ButtonsController : MonoBehaviour
                 showHideController.show("Main Menu");
                 break;
             case "Delete Choice Menu":
-                flexDictionary.removeItem(globalVariables.getKeyPicked());
-                dictionaryListController.removeItem(globalVariables.getKeyPicked());
-                dictionaryListController.refreshList();
+                flexDictionary.removeItem(globalVariables.getPickedItem());
+                //dictionaryListController.refreshList();
                 showHideController.show("Main Menu");
                 break;
             default: break;
@@ -235,8 +235,8 @@ public class ButtonsController : MonoBehaviour
     public void onDiscardButtonClick(){
         switch (globalVariables.getCurrentMenuName()){
             case "Add Item Menu":
-                getRecursiveFindChild(inputFieldsController.getAddKeyInputField().gameObject, "Placeholder").GetComponent<TMP_Text>().text = "Введите термин...";
-                getRecursiveFindChild(inputFieldsController.getAddValueInputField().gameObject, "Placeholder").GetComponent<TMP_Text>().text = "Введите описание термина...";
+                GameObject.Find("AddKeyInputFieldPlaceholder").GetComponent<TMP_Text>().text = textsController.getKeyInputFieldPlaceholder();
+                GameObject.Find("AddValueInputFieldPlaceholder").GetComponent<TMP_Text>().text = textsController.getValueInputFieldPlaceholder();
                 showHideController.show("Main Menu");
                 break;
             case "Edit Item Menu":
@@ -266,11 +266,6 @@ public class ButtonsController : MonoBehaviour
                 break;
             case "Settings Menu":
                 globalVariables.setShowOnlyFavorite(globalVariables.getFavoriteButtonState());
-                if (globalVariables.isShowOnlyFavorite()){
-                    flexDictionary.showOnlyFavoritedDictionary();
-                } else {
-                    flexDictionary.showAllDictionary();
-                }
                 globalVariables.setSorting(dropdownsController.getSortOrderDropdown().value);
                 globalVariables.serializeSettings();
                 showHideController.show("Main Menu");
@@ -281,7 +276,7 @@ public class ButtonsController : MonoBehaviour
     }
 
     public void onItemButtonClick(){
-        globalVariables.setKeyPicked(EventSystem.current.currentSelectedGameObject.name);
+        globalVariables.setPickedItem(flexDictionary.getItem(EventSystem.current.currentSelectedGameObject.name));
         showHideController.show("Item Menu");
     }
 
@@ -294,9 +289,9 @@ public class ButtonsController : MonoBehaviour
     }
 
     public void onEditItemButtonClick(){
-        inputFieldsController.getEditKeyInputField().text = globalVariables.getKeyPicked();
-        inputFieldsController.getEditValueInputField().text = flexDictionary.getValue(globalVariables.getKeyPicked()).getValue();
-        inputFieldsController.getEditHyperlinkInputField().text = flexDictionary.getValue(globalVariables.getKeyPicked()).getHyperlink();
+        inputFieldsController.getEditKeyInputField().text = globalVariables.getPickedItem().getKey();
+        inputFieldsController.getEditValueInputField().text = globalVariables.getPickedItem().getValue();
+        inputFieldsController.getEditHyperlinkInputField().text = globalVariables.getPickedItem().getHyperlink();
         showHideController.show("Edit Item Menu");
     }
 
@@ -310,7 +305,7 @@ public class ButtonsController : MonoBehaviour
     }
 
     public void onHyperlinkButtonClick(){
-        Application.OpenURL(flexDictionary.getValue(globalVariables.getKeyPicked()).getHyperlink());
+        Application.OpenURL(globalVariables.getPickedItem().getHyperlink());
     }
 
     private GameObject getRecursiveFindChild(GameObject parent, string childName){
@@ -370,6 +365,37 @@ public class ButtonsController : MonoBehaviour
         changeAlpha(lightColorSchemeSprite.GetComponent<Image>(), 1f);
         globalVariables.colorScheme = 2;
         colorsController.setNewColorScheme(2);
+    }
+
+    public void onAddDictionaryButtonClick(){
+        string[] files = globalVariables.getAvailableDictionaryFiles();
+        int i = 0;
+        while (true){
+            string newFileName = "NewDictionary" + i.ToString();
+            bool available = true;
+            foreach(string file in files){
+                if (file == newFileName){
+                    available = false;
+                }
+            }
+            if (available){
+                globalVariables.addAvailableDictionaryFile(newFileName);
+                globalVariables.setLastSelectedDictionary(newFileName);
+                dropdownsController.addNewDictionaryToDictionaryDropdown(newFileName);
+                flexDictionary.clearDictionary();
+                flexDictionary.serializeDictionary();
+                break;
+            }
+            i++;
+        }
+    }
+
+    public void onDeleteDictionaryButtonClick(){
+        File.Delete(Path.Combine(globalVariables.getSaveDirectoryPath(), 
+                                 globalVariables.getLastSelectedDictionary() + ".vf"));
+        Debug.Log("Словарь " + globalVariables.getLastSelectedDictionary() + " удален!");
+        dropdownsController.removeDictionaryFromDictionaryDropdown(globalVariables.getLastSelectedDictionary());
+        globalVariables.setLastSelectedDictionary(inputFieldsController.getDictionaryNameInputField());
     }
 
     private void changeAlpha(Image img, float newAlpha){

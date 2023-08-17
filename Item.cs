@@ -1,34 +1,23 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using Newtonsoft.Json;
 using UnityEngine;
 
 public class Item
 {
-    public string key;
-    public string value;
-    public string hyperlink;
-    public DateTime creationDate;
-    public DateTime changeDate;
-    public bool favorite;
-
-    public Item(){
-        this.key = "";
-        this.value = "";
-        this.hyperlink = "";
-        this.creationDate = DateTime.Now;
-        this.changeDate = DateTime.Now;
-        this.favorite = false;
-    }
-
-    public Item(string key, string value, bool favorite){
-        this.key = key;
-        this.value = value;
-        this.hyperlink = "";
-        this.creationDate = DateTime.Now;
-        this.changeDate = DateTime.Now;
-        this.favorite = favorite;
-    }
+    [JsonProperty("key")]
+    private string key;
+    [JsonProperty("value")]
+    private string value;
+    [JsonProperty("hyperlink")]
+    private string hyperlink;
+    [JsonProperty("creationDate")]
+    private DateTime creationDate;
+    [JsonProperty("changeDate")]
+    private DateTime changeDate;
+    [JsonProperty("favorite")]
+    private bool favorite;
 
     public Item(string key, string value, string hyperlink, bool favorite){
         this.key = key;
@@ -36,15 +25,6 @@ public class Item
         this.hyperlink = hyperlink;
         this.creationDate = DateTime.Now;
         this.changeDate = DateTime.Now;
-        this.favorite = favorite;
-    }
-
-    public Item(string key, string value, string hyperlink, DateTime creationTime, DateTime changeDate, bool favorite){
-        this.key = key;
-        this.value = value;
-        this.hyperlink = hyperlink;
-        this.creationDate = creationTime;
-        this.changeDate = changeDate;
         this.favorite = favorite;
     }
 
@@ -80,6 +60,18 @@ public class Item
         return favorite;
     }
 
+    public void setKey(string key){
+        this.key = key;
+    }
+
+    public void setValue(string value){
+        this.value = value;
+    }
+
+    public void setHyperlink(string hyperlink){
+        this.hyperlink = hyperlink;
+    }
+    
     public void setFavorite(bool favorite){
         this.favorite = favorite;
     }

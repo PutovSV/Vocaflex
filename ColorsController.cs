@@ -20,6 +20,7 @@ public class ColorsController : MonoBehaviour
     private List<Image> elementBackgroundColorList = new List<Image>();
 
     public List<Image> inactiveGraphicElements = new List<Image>();
+    public List<Image> inactiveGraphicElements2 = new List<Image>();
     public List<TMP_Text> inactiveTextElements = new List<TMP_Text>();
 
     private string[,] colorSchemesArray = new string[3,8]{
@@ -81,6 +82,11 @@ public class ColorsController : MonoBehaviour
             }
         }
         GameObject[] allTexts = GameObject.FindGameObjectsWithTag("Text");
+        GameObject[] allMultilanguageTexts = GameObject.FindGameObjectsWithTag("MultilanguageText");
+        List<GameObject> texts = new List<GameObject>();
+        texts.AddRange(allTexts);
+        texts.AddRange(allMultilanguageTexts);
+        allTexts = texts.ToArray();
         foreach(GameObject go in allTexts){
             switch (ColorUtility.ToHtmlStringRGB(go.GetComponent<TMP_Text>().color)){
                 case "003052":
@@ -98,6 +104,7 @@ public class ColorsController : MonoBehaviour
         }
 
         inputFieldColorList.AddRange(inactiveGraphicElements);
+        buttonMainColorList.AddRange(inactiveGraphicElements2);
         textColorList.AddRange(inactiveTextElements);
     }
 
@@ -149,12 +156,14 @@ public class ColorsController : MonoBehaviour
     }
 
     public Color getElementBackgroundColor(){
+        setGlobalVariables();
         Color color;
         ColorUtility.TryParseHtmlString(colorSchemesArray[globalVariables.colorScheme, 7], out color);
         return color;
     }
 
     public Color getElementTextColor(){
+        setGlobalVariables();
         Color color;
         ColorUtility.TryParseHtmlString(colorSchemesArray[globalVariables.colorScheme, 5], out color);
         return color;

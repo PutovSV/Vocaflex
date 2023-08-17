@@ -5,22 +5,21 @@ using UnityEngine.UI;
 using TMPro;
 using Newtonsoft.Json;
 using System.IO;
-using System.Linq;
 
 public sealed class FlexDictionary : MonoBehaviour
 {
-    private Dictionary<string, Item> dictionary = new Dictionary<string, Item>(); // == 0
-    private Dictionary<string, Item> filteredDictionary;                          // == 1
-    private Dictionary<string, Item> temporaryDictionary;                         // == 2
+    private List<Item> dictionary = new List<Item>();
+    private List<Item> dictionaryToShow;
+    private List<Item> temporaryDictionary;
     
     public GameObject scrollView;
     public TMP_Text log;
+    public bool loaded = false;
 
     private bool changed = false;
-    private int activeDictionary = 0;
+    private string searchText = null;
     private GlobalVariables globalVariables;
     private DictionaryListController dictionaryListController;
-    public string[] dictionaryArray;
 
     private static FlexDictionary instance = null;
     private FlexDictionary(){}   
@@ -39,11 +38,10 @@ public sealed class FlexDictionary : MonoBehaviour
     void Start(){
         setGlobalVariables();
         if (globalVariables.isTesting()){
+            var random = new System.Random();
             for (int i = 0; i < 1000; i++){
-                dictionary.Add(i.ToString(), new Item(i.ToString(), i.ToString(), false));
+                dictionary.Add(new Item("Key #" + i.ToString(), "Value #" + i.ToString(), "Hyperlink #" + i.ToString(), false /*random.Next(2) == 1*/));
             }
-            setActiveDictionary(0);
-            dictionaryListController.refreshList();
         }
     }
 
@@ -54,110 +52,142 @@ public sealed class FlexDictionary : MonoBehaviour
         }
     }
 
-    public Dictionary<string, Item> getDictionary(){
-        return getActiveDictionary();
+    public void clearDictionary(){
+        dictionary = new List<Item>();
     }
 
-    public bool addItem(string key, Item value){
-        if (!dictionary.ContainsKey(key)){
-            dictionary.Add(key, value);
-            sortDictionary(globalVariables.getSorting());
-            if (globalVariables.isShowOnlyFavorite()){
-                showOnlyFavoritedDictionary();
-            }
+    public List<Item> getDictionary(){
+        setGlobalVariables();
+        dictionaryToShow = new List<Item>();
+        dictionaryToShow = applySorting(dictionary, globalVariables.getSorting());
+        dictionaryToShow = applyShowOnlyFavorite(dictionaryToShow, globalVariables.isShowOnlyFavorite());
+        dictionaryToShow = getSearchResult(dictionaryToShow, searchText);     
+        return dictionaryToShow;
+    }
+
+    public bool addItem(Item item){
+        if (!dictionary.Contains(item)){
+            dictionary.Add(item);
             if (!globalVariables.isTesting()){
                 serializeDictionary();
             }
-            setDictionaryArray();
             changed = true;
             return true;
         }
         return false;
     }
  
-    public bool removeItem(string itemKey){
-        if (dictionary.ContainsKey(itemKey)){
-            dictionary.Remove(itemKey);
+    public bool removeItem(Item item){
+        if (dictionary.Contains(item)){
+            dictionary.Remove(item);
             if (!globalVariables.isTesting()){
                 serializeDictionary();
             }
-            setDictionaryArray();
             changed = true;
             return true;
         }
         return false;
     }
 
-    private bool updateItem(string key, Item value){
-        dictionary[key] = value;
-        //globalVariables.getListOfContent().transform.Find(key).transform.Find("ItemValue").GetComponent<TMP_Text>().text = value.getDescription();//сделать это в DictionaryListController
-        if (!globalVariables.isTesting()){
-            serializeDictionary();
+    public bool removeItem(string key){
+        for(int i = 0; i < dictionary.Count; i++){
+            if (dictionary[i].getKey() == key){
+                dictionary.Remove(dictionary[i]);
+                if (!globalVariables.isTesting()){
+                    serializeDictionary();
+                }
+                changed = true;
+                return true;
+            }
         }
-        changed = true;
-        return true;
+        return false;
     }
 
-    public bool updatePickedItem(string itemKey, string itemValue, string itemHyperlink, bool isFavorite){
-        if (!dictionary.ContainsKey(itemKey)){
-            dictionary.Remove(globalVariables.getKeyPicked());
-            return addItem(itemKey, new Item(itemValue, itemHyperlink, isFavorite));
-        } else{
-            return updateItem(itemKey, new Item(itemValue, itemHyperlink, isFavorite));
+    public bool updateItem(Item item){
+        for(int i = 0; i < dictionary.Count; i++){
+            if (dictionary[i].getKey() == globalVariables.getPickedItem().getKey()){
+                dictionary[i] = item;
+                if (!globalVariables.isTesting()){
+                    serializeDictionary();
+                }
+                changed = true;
+                return true;
+            }
+        } 
+        return false;
+    }
+
+    public Item getItem(string key){
+        for(int i = 0; i < dictionary.Count; i++){
+            if (dictionary[i].getKey() == key){
+                return dictionary[i];
+            }
         }
+        return null;
     }
 
-    public KeyValuePair<string, Item> getItem (string key){
-        return new KeyValuePair<string, Item> (key, dictionary[key]);
-    }
-
-    public Item getValue(string key){
-        return dictionary[key];
+    public string getValue(string key){
+        for(int i = 0; i < dictionary.Count; i++){
+            if (dictionary[i].getKey() == key){
+                return dictionary[i].getValue();
+            }
+        }
+        return null;
     }
 
     public bool isFavorite(string key){
-        return dictionary[key].isFavorite();
+        for(int i = 0; i < dictionary.Count; i++){
+            if (dictionary[i].getKey() == key){
+                return dictionary[i].isFavorite();
+            }
+        }
+        return false;
     }
 
-    public void setFavorite(string key, bool favorite){
-        dictionary[key].setFavorite(favorite);
-        changed = true;
+    public void setFavorite(Item item, bool favorite){
+        for(int i = 0; i < dictionary.Count; i++){
+            if (dictionary[i] == item){
+                dictionary[i].setFavorite(favorite);
+            }
+        }
+    }
+
+    public void setSearchText(string text){
+        searchText = text;
     }
 
     //DEBUG
     public void getAllItems(){
-        Debug.Log("-------- Values in vocabulary: " + dictionary.Count + " --------");
-        foreach(var item in dictionary)
-            Debug.Log("Key: " + item.Key + " Value: " + item.Value);
+        Debug.Log("-------- Values in dictionary: " + dictionary.Count + " --------");
+        foreach(Item item in dictionary)
+            Debug.Log("Key: " + item.getKey() + " Value: " + item.getValue());
     }
 
     public string getJsonString(){
-        Dictionary<string, string> jsonDictionary= new Dictionary<string, string>();
-        foreach(KeyValuePair<string, Item> item in dictionary){
-            jsonDictionary.Add(item.Key, JsonConvert.SerializeObject(item.Value));
-        //    Debug.Log(JsonConvert.SerializeObject(item.Value)); //DEBUG
+        List<string> jsonDictionary= new List<string>();
+        foreach(Item item in dictionary){
+            jsonDictionary.Add(JsonConvert.SerializeObject(item));
+            Debug.Log(JsonConvert.SerializeObject(item)); //DEBUG
         }
         return JsonConvert.SerializeObject(jsonDictionary);
     }
 
     public void importVocabulary(string json){
-        dictionary = JsonConvert.DeserializeObject<Dictionary<string, Item>>(json);
-        dictionaryListController.refreshList();
+        dictionary = JsonConvert.DeserializeObject<List<Item>>(json);
     }
 
     public void serializeDictionary(){
+        setGlobalVariables();
         string json = getJsonString();
         string filePath = Path.Combine(globalVariables.getSaveDirectoryPath(),
-                                       globalVariables.getSelectedDictionaryPath() + ".vf");
+                                       globalVariables.getLastSelectedDictionary() + ".vf");
         Directory.CreateDirectory(globalVariables.getSaveDirectoryPath());
         File.WriteAllText(filePath, json);
         if (globalVariables.isTesting()){
             globalVariables.writeToDebugLog("словарь сохранен: " + filePath);
         }
-        Debug.Log("Словарь сохранен!");
+        Debug.Log("Словарь " + globalVariables.getLastSelectedDictionary() + " сохранен!");
         changed = false;
-        setActiveDictionary(0);
-        dictionaryListController.setItemsList();
     }
 
     public void deserializeDictionary(){
@@ -165,44 +195,49 @@ public sealed class FlexDictionary : MonoBehaviour
         setGlobalVariables();
         globalVariables.writeToDebugLog("Загрузка словаря");
         
+        dictionary = new List<Item>();
         if (File.Exists(Path.Combine(globalVariables.getSaveDirectoryPath(), 
-                                     globalVariables.getSelectedDictionaryPath() + ".vf"))){
+                                     globalVariables.getLastSelectedDictionary() + ".vf"))){
             string json = File.ReadAllText(Path.Combine(globalVariables.getSaveDirectoryPath(), 
-                                                        globalVariables.getSelectedDictionaryPath() + ".vf"));
-            Dictionary<string, string> jsonDictionary = new Dictionary<string, string>();
-            jsonDictionary = JsonConvert.DeserializeObject<Dictionary<string, string>>(json);
-            
-            foreach(KeyValuePair<string, string> item in jsonDictionary){
-                dictionary.Add(item.Key, JsonConvert.DeserializeObject<Item>(item.Value));
-                //Debug.Log(item.Value);
+                                                        globalVariables.getLastSelectedDictionary() + ".vf"));
+            List<string> jsonDictionary = new List<string>();
+            try{
+                jsonDictionary = JsonConvert.DeserializeObject<List<string>>(json);
+                foreach(string s in jsonDictionary){
+                    dictionary.Add(JsonConvert.DeserializeObject<Item>(s));
+                }
+                if (globalVariables.isTesting()){
+                    globalVariables.writeToDebugLog("Файл словаря загружен: " + Path.Combine(globalVariables.getSaveDirectoryPath(),
+                                                                                             globalVariables.getLastSelectedDictionary() + ".vf"));
+                }
+                Debug.Log("Словарь " + globalVariables.getLastSelectedDictionary() + " загружен!");
+            } catch (System.Exception ex){
+                Debug.Log("Ошибка при загрузке словаря! " + globalVariables.getLastSelectedDictionary() + " " + ex);
             }
-            if (globalVariables.isTesting()){
-                globalVariables.writeToDebugLog("Файл словаря загружен: " + Path.Combine(globalVariables.getSaveDirectoryPath(),
-                                                                                         globalVariables.getSelectedDictionaryPath() + ".vf"));
-            }
-            Debug.Log("Словарь загружен!");
             //controller.switchTo("mainMenu");
         } else {
             if (globalVariables.isTesting()){
                 globalVariables.writeToDebugLog("Файла словаря нет: " + Path.Combine(globalVariables.getSaveDirectoryPath(),
-                                                                                     globalVariables.getSelectedDictionaryPath() + ".vf"));
+                                                                                     globalVariables.getLastSelectedDictionary() + ".vf"));
             }
             Debug.Log("Нечего загрузить!");
         }
-
-        setActiveDictionary(0);
-        dictionaryListController.setItemsList();
+        //getAllItems();
+        loaded = true;
     }
 
-    public void getSearchResult(string searchText){
-        temporaryDictionary = new Dictionary<string, Item>();
-        foreach(KeyValuePair<string, Item> item in dictionary){
-            if (item.Key.IndexOf(searchText) != -1){
-                temporaryDictionary.Add(item.Key, item.Value);
+    public List<Item> getSearchResult(List<Item> list, string searchText){
+        if (searchText != null && searchText.Length > 0){
+            temporaryDictionary = new List<Item>();
+            searchText = searchText.ToUpper();
+            foreach(Item item in list){
+                if (item.getKey().ToUpper().IndexOf(searchText) != -1){
+                    temporaryDictionary.Add(item);
+                }
             }
-        filteredDictionary = temporaryDictionary;
-        setActiveDictionary(1);
+            return temporaryDictionary;
         }
+        return list;
 /*
         foreach(KeyValuePair<string, string> item in searchResult){
             Debug.Log(item.Key + " = " + item.Value);
@@ -210,64 +245,56 @@ public sealed class FlexDictionary : MonoBehaviour
 */
     }
 
-    public void sortDictionary(int sortType){
-
-        List<KeyValuePair<string, Item>> filteredList = getActiveDictionary().ToList();
+    public List<Item> applySorting(List<Item> list, int sortType){
 
         switch (sortType){
             case 0:{
                 break;
             }
             case 1:{
-                filteredList.Sort(
-                    delegate(KeyValuePair<string, Item> pair1,
-                    KeyValuePair<string, Item> pair2){
-                        return pair1.Key.CompareTo(pair2.Key);
+                list.Sort(
+                    delegate(Item item1, Item item2){
+                        return item1.getKey().CompareTo(item2.getKey());
                     }
                 );
                 break;
             }
             case 2:{
-                filteredList.Sort(
-                    delegate(KeyValuePair<string, Item> pair1,
-                    KeyValuePair<string, Item> pair2){
-                        return pair2.Key.CompareTo(pair1.Key);
+                list.Sort(
+                    delegate(Item item1, Item item2){
+                        return item2.getKey().CompareTo(item1.getKey());
                     }
                 );
                 break;
             }
             case 3:{
-                filteredList.Sort(
-                    delegate(KeyValuePair<string, Item> pair1,
-                    KeyValuePair<string, Item> pair2){
-                        return pair1.Value.getCreationDate().CompareTo(pair2.Value.getCreationDate());
+                list.Sort(
+                    delegate(Item item1, Item item2){
+                        return item1.getCreationDate().CompareTo(item2.getCreationDate());
                     }
                 );
                 break;
             }
             case 4:{
-                filteredList.Sort(
-                    delegate(KeyValuePair<string, Item> pair1,
-                    KeyValuePair<string, Item> pair2){
-                        return pair2.Value.getCreationDate().CompareTo(pair1.Value.getCreationDate());
+                list.Sort(
+                    delegate(Item item1, Item item2){
+                        return item2.getCreationDate().CompareTo(item1.getCreationDate());
                     }
                 );
                 break;
             }
             case 5:{
-                filteredList.Sort(
-                    delegate(KeyValuePair<string, Item> pair1,
-                    KeyValuePair<string, Item> pair2){
-                        return pair1.Value.getChangeDate().CompareTo(pair2.Value.getChangeDate());
+                list.Sort(
+                    delegate(Item item1, Item item2){
+                        return item1.getChangeDate().CompareTo(item2.getChangeDate());
                     }
                 );
                 break;
             }
             case 6:{
-                filteredList.Sort(
-                    delegate(KeyValuePair<string, Item> pair1,
-                    KeyValuePair<string, Item> pair2){
-                        return pair2.Value.getChangeDate().CompareTo(pair1.Value.getChangeDate());
+                list.Sort(
+                    delegate(Item item1, Item item2){
+                        return item2.getChangeDate().CompareTo(item1.getChangeDate());
                     }
                 );
                 break;
@@ -275,65 +302,20 @@ public sealed class FlexDictionary : MonoBehaviour
             default: break;
         }
 
-        temporaryDictionary = new Dictionary<string, Item>();
-
-        foreach (KeyValuePair<string, Item> item in filteredList){
-	        temporaryDictionary.Add(item.Key, item.Value);
-            //Debug.Log(item.Key);
-        }
-
-        filteredDictionary = temporaryDictionary;
-        setActiveDictionary(1);
+        return list;
     }
 
-    public void showOnlyFavoritedDictionary(){
-        
-        temporaryDictionary = new Dictionary<string, Item>();
-
-        foreach (KeyValuePair<string, Item> item in getActiveDictionary()){
-            if (item.Value.isFavorite()){
-	            temporaryDictionary.Add(item.Key, item.Value);
+    private List<Item> applyShowOnlyFavorite(List<Item> list, bool isShowOnlyFavorite){
+        if (isShowOnlyFavorite){
+            temporaryDictionary = new List<Item>();
+            foreach (Item item in list){
+                if (item.isFavorite()){
+	                temporaryDictionary.Add(item);
+                }
             }
+            return temporaryDictionary;
         }
-        filteredDictionary = temporaryDictionary;
-        setActiveDictionary(1);
-    }
-
-    public void showAllDictionary(){
-        setActiveDictionary(0);
-    }
-
-    public Dictionary<string, Item> getActiveDictionary(){
-        switch(activeDictionary){
-            case 0:{
-                return dictionary;
-            }
-            case 1:{
-                return filteredDictionary;
-            }
-            case 2:{
-                return temporaryDictionary;
-            }
-            default: return null;
-        }
-    }
-
-    private void setActiveDictionary(int number){
-        activeDictionary = number;
-        setDictionaryArray();
-    }
-
-    private void setDictionaryArray(){
-        dictionaryArray = new string[getActiveDictionary().Count];
-        int n = 0;
-        foreach(KeyValuePair<string, Item> item in getActiveDictionary()){
-            dictionaryArray[n++] = item.Key;
-        }
-        Debug.Log("Dictionary array set");
-    }
-
-    public string[] getDictionaryArray(){
-        return dictionaryArray;
+        return list;
     }
 
     public bool isChanged(){

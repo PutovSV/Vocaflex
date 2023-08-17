@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using System;
+using System.Threading;
 
 public sealed class DictionaryListController : MonoBehaviour
 {
@@ -18,8 +19,8 @@ public sealed class DictionaryListController : MonoBehaviour
     private GameObject listOfContent;
     private ColorsController colorsController;
 
-    private int maxListLength = 999999;
-    private int position = 0;
+    //private int maxListLength = 999999;
+    //private int position = 0;
 
     private static DictionaryListController instance = null;
     private DictionaryListController(){}
@@ -56,11 +57,10 @@ public sealed class DictionaryListController : MonoBehaviour
         }
     }
 
-    private GameObject addItem(string key){
-        KeyValuePair<string, Item> item = flexDictionary.getItem(key);
+    private GameObject addItem(Item item){
         GameObject button = Instantiate(itemPrefab);
-        button.GetComponent<RectTransform>().sizeDelta = new Vector2(0, globalVariables.keyFontSize * 2.5f);
-        button.name = item.Key;
+        //button.GetComponent<RectTransform>().sizeDelta = new Vector2(0, globalVariables.keyFontSize * 2.5f);
+        button.name = item.getKey();
         button.GetComponent<Image>().color = colorsController.getElementBackgroundColor();
         button.GetComponent<Button>().onClick.AddListener(delegate {
             buttonsController.onItemButtonClick();
@@ -68,22 +68,22 @@ public sealed class DictionaryListController : MonoBehaviour
         button.transform.SetParent(listOfContent.transform);
         TMP_Text itemKey = button.transform.Find("ItemKey").GetComponent<TMP_Text>();
         TMP_Text itemValue = button.transform.Find("ItemValue").GetComponent<TMP_Text>();
-        //itemKey.GetComponent<RectTransform>().sizeDelta = new Vector2(0, globalVariables.keyFontSize * 2.5f);
-        //itemKey.transform.position = new Vector3(10, -10, 0);
+        //itemKey.GetComponent<RectTransform>().sizeDelta = new Vector2(Screen.width, globalVariables.keyFontSize * 2.5f);
+        //itemKey.transform.localScale = new Vector3(1, 1, 1);
         itemKey.color = colorsController.getElementTextColor();
-        itemKey.text = item.Key;
+        itemKey.text = item.getKey();
         itemKey.fontSize = globalVariables.keyFontSize;
         itemKey.font = globalVariables.fonts[globalVariables.keyFont];
         //itemKey.transform.position = new Vector3(10, globalVariables.valueFontSize * 0.5f, 0);
         itemValue.color = colorsController.getElementTextColor();
-        Debug.Log(item.Value.getValue());
-        itemValue.text = item.Value.getValue();
+        //Debug.Log(item.Value.getValue());
+        itemValue.text = item.getValue();
         itemValue.fontSize = globalVariables.valueFontSize;
         itemValue.font = globalVariables.fonts[globalVariables.valueFont];
         return button;
         //Debug.Log("item " + item.Key + " added");
     }
-
+/*
     public void removeItem(string key){
         foreach(Transform child in listOfContent.transform){
             if (child.name == key){
@@ -91,11 +91,16 @@ public sealed class DictionaryListController : MonoBehaviour
             }
         }
     }
-
+*/
     public void refreshList(){
         Debug.Log("Обновление списка");
         setGlobalVariables();
+        
         clearItemsList();
+
+        //Thread childThread = new Thread(setItemsList);
+        //childThread.Start();
+
         setItemsList();
     }
 
@@ -134,11 +139,12 @@ public sealed class DictionaryListController : MonoBehaviour
     }
 */
     public void setItemsList(){
-        int size = flexDictionary.getDictionaryArray().Length;
-        for(int i = position; (i < maxListLength + position) & (i < size); i++){
-            addItem(flexDictionary.getDictionaryArray()[i]);
+        setGlobalVariables();
+        foreach(Item item in flexDictionary.getDictionary()){
+            addItem(item);
+            Debug.Log(item.getKey());
         }
-        //listOfContent.GetComponent<RectTransform>().Translate(0, 2300, 0);
+        Debug.Log("Dictionary List Controller: ItemsList set.");
     }
 
 }

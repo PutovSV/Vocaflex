@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -8,11 +9,17 @@ using Newtonsoft.Json;
 
 public sealed class GlobalVariables : MonoBehaviour
 {
+    // settings
     public int keyFont = 0;
     public int keyFontSize = 40;
     public int valueFont = 0;
     public int valueFontSize = 30;
     public int colorScheme = 0;
+    public int sorting = 0;
+    public bool showOnlyFavorite = false;
+    public string lastSelectedDictionary;
+    public string language = "English";
+
     public TMP_FontAsset[] fonts;
     public float listStartingPosition;
     
@@ -20,15 +27,11 @@ public sealed class GlobalVariables : MonoBehaviour
     private string[] availableDictionaryFiles;
     private int[] settingsData;
 
-    private int selectedDictionary = 0;
-    private int sorting = 0;
-
     private string currentMenu = "Main Menu";
     private string previousMenu;
-    private string keyPicked;
+    private Item pickedItem;
 
-    public bool showOnlyFavorite = false;
-    private bool testing = false; //DEBUG
+    private bool testing = true; //DEBUG
     private bool favoriteButtonState;
     
     public GameObject mainCamera;
@@ -44,6 +47,7 @@ public sealed class GlobalVariables : MonoBehaviour
     public GameObject settingsMenu;
     public GameObject favoriteButton;
     public GameObject favoriteSettingsButton;
+    private GameObject[] allMultilanguageTexts;
     
     public TMP_FontAsset font0;
     public TMP_FontAsset font1;
@@ -102,6 +106,8 @@ public sealed class GlobalVariables : MonoBehaviour
         fonts[3] = font3;
         fonts[4] = font4;
 
+        allMultilanguageTexts = GameObject.FindGameObjectsWithTag("MultilanguageText");
+
         if (!Directory.Exists(getSaveDirectoryPath())){
             Directory.CreateDirectory(getSaveDirectoryPath());
             if (testing){
@@ -109,69 +115,84 @@ public sealed class GlobalVariables : MonoBehaviour
             }
         }
 
-        availableDictionaryFiles = Directory.GetFiles(saveDirectoryPath);
-        for(int i = 0; i < availableDictionaryFiles.Length; i++){
-            availableDictionaryFiles[i] = Path.GetFileName(availableDictionaryFiles[i]).Substring(0, Path.GetFileName(availableDictionaryFiles[i]).IndexOf(".vf"));
-        }
-        
-        if (availableDictionaryFiles.Length == 0){
-            availableDictionaryFiles = new string[]{ "NewDictionary" };
-        }
+        if (!testing){
 
-        deserializeSettings();
+            availableDictionaryFiles = Directory.GetFiles(saveDirectoryPath);
+            for(int i = 0; i < availableDictionaryFiles.Length; i++){
+                availableDictionaryFiles[i] = Path.GetFileName(availableDictionaryFiles[i]).Substring(0, Path.GetFileName(availableDictionaryFiles[i]).IndexOf(".vf"));
+            }
 
-        if (testing){
+            if (availableDictionaryFiles.Length == 0){
+                availableDictionaryFiles = new string[]{"NewDictionary"};
+                lastSelectedDictionary = availableDictionaryFiles[0];
+                flexDictionary.serializeDictionary();
+            }
+
+            deserializeSettings();
+        } else{
             writeToDebugLog("GlobalVariables loaded");
         }
 
         listStartingPosition = listOfContent.GetComponent<RectTransform>().position.y;
-        //DEBUG
-        /*foreach(var s in availableVocabularyFiles){
-            Debug.Log(s);
-        }*/
 
-        /*
-        foreach(Transform child in itemPrefab.transform){
-            if (child.gameObject.name.Equals("ItemKey")){
-                child.gameObject.GetComponent<TMP_Text>().fontSize = keyFontSize;
-            }
-            if (child.gameObject.name.Equals("ItemValue")){
-                child.gameObject.GetComponent<TMP_Text>().fontSize = valueFontSize;
-            }
-        }*/
-
+        //textsController.saveLanguage();
     }
 
     public void deserializeSettings(){
         if (File.Exists(Path.Combine(Application.persistentDataPath, "settings.ini"))){
             string json = File.ReadAllText(Path.Combine(Application.persistentDataPath, "settings.ini"));
-            int[] jsonSettings = new int[6];
-            jsonSettings = JsonConvert.DeserializeObject<int[]>(json);
-            
+            string[] jsonSettings = new string[9];
+            jsonSettings = JsonConvert.DeserializeObject<string[]>(json);
             scrollbarsController.setFontSizeScrollbarValue(0);
+            keyFont = int.Parse(jsonSettings[0]);
+            keyFontSize = int.Parse(jsonSettings[1]);
+            valueFont = int.Parse(jsonSettings[2]);
+            valueFontSize = int.Parse(jsonSettings[3]);
+            colorScheme = int.Parse(jsonSettings[4]);
+            sorting = int.Parse(jsonSettings[5]);
+            showOnlyFavorite = (int.Parse(jsonSettings[6]) == 1) ? true : false;
 
-            keyFont = jsonSettings[0];
-            keyFontSize = jsonSettings[1];
-            valueFont = jsonSettings[2];
-            valueFontSize = jsonSettings[3];
-            colorScheme = jsonSettings[4];
-            showOnlyFavorite = (jsonSettings[5] == 1) ? true : false;
+            bool isFileExists = false;
+            foreach(string fileName in availableDictionaryFiles){
+                if (fileName == jsonSettings[7]){
+                    isFileExists = true;
+                }
+            }
+            if (isFileExists){
+                lastSelectedDictionary = jsonSettings[7];
+            } else{
+                lastSelectedDictionary = availableDictionaryFiles[0];
+                Debug.Log("Словаря " + jsonSettings[7] + " не существует! Создан словарь " + lastSelectedDictionary);
+            }
+
+            language = jsonSettings[8];
             
-            colorsController.setGraphicObjectsLists();
-            colorsController.setNewColorScheme(colorScheme);
-            scrollbarsController.setFontSizeScrollbarValue(keyFontSize);
-            textsController.updateSettingsTexts();
+        } else{
+            // if settings file not found
+            serializeSettings();
         }
+
+        colorsController.setGraphicObjectsLists();
+        colorsController.setNewColorScheme(colorScheme);
+        scrollbarsController.setFontSizeScrollbarValue(keyFontSize);
+        dropdownsController.setDictionaryDropdownOptions(availableDictionaryFiles.ToList());
+        inputFieldsController.setDictionaryNameInputFieldText(lastSelectedDictionary);
+        dropdownsController.setInterfaceLanguageDropdownOption(language);
+
+        flexDictionary.deserializeDictionary();
     }
 
     public void serializeSettings(){
-        int[] jsonSettings = new int[6];
-            jsonSettings[0] = keyFont;
-            jsonSettings[1] = keyFontSize;
-            jsonSettings[2] = valueFont;
-            jsonSettings[3] = valueFontSize;
-            jsonSettings[4] = colorScheme;
-            jsonSettings[5] = showOnlyFavorite ? 1 : 0;
+        string[] jsonSettings = new string[9];
+        jsonSettings[0] = keyFont.ToString();
+        jsonSettings[1] = keyFontSize.ToString();
+        jsonSettings[2] = valueFont.ToString();
+        jsonSettings[3] = valueFontSize.ToString();
+        jsonSettings[4] = colorScheme.ToString();
+        jsonSettings[5] = sorting.ToString();
+        jsonSettings[6] = (showOnlyFavorite ? 1 : 0).ToString();
+        jsonSettings[7] = lastSelectedDictionary;
+        jsonSettings[8] = language;
         string json = JsonConvert.SerializeObject(jsonSettings);
         string filePath = Path.Combine(Application.persistentDataPath, "settings.ini");
         File.WriteAllText(filePath, json);
@@ -189,8 +210,8 @@ public sealed class GlobalVariables : MonoBehaviour
         return saveDirectoryPath;
     }
 
-    public string getSelectedDictionaryPath(){
-        return availableDictionaryFiles[selectedDictionary];
+    public string getLastSelectedDictionary(){
+        return lastSelectedDictionary != null ? lastSelectedDictionary : lastSelectedDictionary = availableDictionaryFiles[0];
     }
 
     public GameObject getCurrentMenu(){
@@ -237,16 +258,16 @@ public sealed class GlobalVariables : MonoBehaviour
         previousMenu = menu;
     }
 
-    public string getKeyPicked(){
-        return keyPicked;
+    public Item getPickedItem(){
+        return pickedItem;
     }
 
-    public void setKeyPicked(string key){
-        keyPicked = key;
+    public void setPickedItem(Item item){
+        pickedItem = item;
     }
 
-    public void setSelectedDictionary(int number){
-        selectedDictionary = number;
+    public void setLastSelectedDictionary(string filename){
+        lastSelectedDictionary = filename;
     }
     
     public ShowHideController getShowHideController(){
@@ -354,11 +375,11 @@ public sealed class GlobalVariables : MonoBehaviour
     }
 
     public bool isFavorite(){
-        return flexDictionary.isFavorite(keyPicked);
+        return pickedItem.isFavorite();
     }
 
     public void setFavorite(bool favorite){
-        flexDictionary.setFavorite(keyPicked, favorite);
+        flexDictionary.setFavorite(pickedItem, favorite);
     }
 
     public bool getFavoriteButtonState(){
@@ -375,5 +396,21 @@ public sealed class GlobalVariables : MonoBehaviour
 
     public string[] getAvailableDictionaryFiles(){
         return availableDictionaryFiles;
+    }
+
+    public void addAvailableDictionaryFile(string file){
+        availableDictionaryFiles = availableDictionaryFiles.Concat(new string[]{file}).ToArray();
+    }
+
+    public string getLanguage(){
+        return language;
+    }
+
+    public void setLanguage(string newLanguage){
+        language = newLanguage;
+    }
+
+    public GameObject[] getAllMultilanguageTexts(){
+        return allMultilanguageTexts;
     }
 }
